@@ -38,6 +38,29 @@ class World_parameters:
     time=0
     frame=0
 
+    colors = {
+    "red": (255, 0, 0),
+    "green": (0, 255, 0),
+    "blue": (0, 0, 255),
+    "white": (255, 255, 255),
+    "black": (0, 0, 0),
+    "yellow": (255, 255, 0),
+    "cyan": (0, 255, 255),
+    "magenta": (255, 0, 255),
+    "orange": (255, 165, 0),
+    "purple": (128, 0, 128),
+    "pink": (255, 192, 203),
+    "brown": (139, 69, 19),
+    "gray": (128, 128, 128),
+    "light_gray": (211, 211, 211),
+    "dark_gray": (64, 64, 64),
+    "lime": (0, 255, 0),
+    "navy": (0, 0, 128),
+    "gold": (255, 215, 0),
+    "coral": (255, 127, 80),
+    "turquoise": (64, 224, 208)
+    }
+
 def init(screensize,world_size,freezex=False,freezey=False,fps=60,gravity=None,chunks_size=100):
     py.init()
     py.font.init()
@@ -64,7 +87,7 @@ def init(screensize,world_size,freezex=False,freezey=False,fps=60,gravity=None,c
     World_parameters.fps=fps
     World_parameters.gravity=gravity
 
-    World_parameters.clock=py.Clock()
+    World_parameters.clock=py.time.Clock()
 
     World_parameters.background=py.surface.Surface(World_parameters.screen_size)
     World_parameters.background_size=py.Vector2(World_parameters.screen_size)
@@ -72,15 +95,18 @@ def init(screensize,world_size,freezex=False,freezey=False,fps=60,gravity=None,c
 
 #@lru_cache(maxsize=128)
 def image_load(path,alpha=True,size=None,fit_screen=False):
-    try:
+    
+    if '.' not in path:
+        if type(path)!=tuple:
+            path=World_parameters.colors[path]
+        img=py.surface.Surface(size)
+        img.fill(path)
+    else:
         if alpha:
             img=py.image.load(path).convert_alpha()
         else:
             img=py.image.load(path).convert()
-    except:
-        img=py.surface.Surface(size)
-        img.fill(path if type(path) is tuple else (255,255,255))
-
+   
     if fit_screen:
         img=py.transform.smoothscale(img,World_parameters.screen_size)
     elif size is not None:
@@ -97,10 +123,14 @@ def camera_update():
 
 class Entity:
     def __init__(self,pos,size,status=None,direction='right',image=None,colour=(255,0,0),velocity=(0,0),acceleration=(0,0),gravity=World_parameters.gravity,max_velocity=None,tag=None,collision=True):
-
         World_parameters.entities[pos[0]//World_parameters.chunk_size][pos[1]//World_parameters.chunk_size].append(self)
+
         self.rec=py.Rect(pos[0],pos[1],size[0],size[1])
+        self.prevpos=py.Vector2(pos)
         self.image=[{},{},{},{}]
+        if type(colour)==str:
+            colour=World_parameters.colors[colour]
+        
         self.load_image(image if image is not None else colour,status,direction)
 
         self.vel=py.Vector2(velocity)
@@ -320,15 +350,19 @@ def objupdate():
 
     if World_parameters.time%15==0:
         World_parameters.frame+=1
+
     for x in range(startx,endx):
         for y in range(starty,endy):
             for entity in entities[x][y]:
+
+                entity.prevpos.update(entity.rec.x,entity.rec.y)
                
                 entity.vel+=entity.acc
 
                 if entity.max_vel is not None:
                     entity.vel.x=max(min(entity.vel.x,entity.max_vel.x),-entity.max_vel.x)
                     entity.vel.y=max(min(entity.vel.y,entity.max_vel.y),-entity.max_vel.y)
+
                 entity.moveTo(entity.rec.x+entity.vel.x,entity.rec.y+entity.vel.y)
                 entity.update()
 
@@ -347,19 +381,23 @@ def objupdate():
                             for block in blocks[x+r][y+c]:
                                 if entity.rec.colliderect(block.left) and entity.vel.x>0:
                                     entity.rec.x=block.left.x-entity.rec.width+1
-                                    entity.vel.x=0
+                                    if entity.prevpos.x==entity.rec.x:
+                                        entity.vel.x=0
                                     entity.entity_block_collision(block,'left')
                                 elif entity.rec.colliderect(block.right) and entity.vel.x<0:
                                     entity.rec.x=block.right.x
-                                    entity.vel.x=0
+                                    if entity.prevpos.x==entity.rec.x:
+                                        entity.vel.x=0
                                     entity.entity_block_collision(block,'right')
                                 if entity.rec.colliderect(block.top) and entity.vel.y>=0:
                                     entity.rec.y=block.top.y-entity.rec.height+1
-                                    entity.vel.y=0
+                                    if entity.prevpos.y==entity.rec.y:
+                                        entity.vel.y=0
                                     entity.entity_block_collision(block,'top')
                                 elif entity.rec.colliderect(block.bottom) and entity.vel.y<0:
                                     entity.rec.y=block.bottom.y
-                                    entity.vel.y=0
+                                    if entity.prevpos.y==entity.rec.y:
+                                        entity.vel.y=0
                                     entity.entity_block_collision(block,'bottom')
 
     for x in range(startx,endx):
@@ -442,7 +480,19 @@ def drawall():
 
 
 
+"""
 
+stuff to do 
+
+1)add colour id dict like {"red:(255,0,0)} all of them - done but test
+
+2)add prevpos and set vel to 0 if pos is same for 2 continous frame during collision - done but test
+
+
+
+
+
+"""
 
 
 
